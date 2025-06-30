@@ -1,5 +1,7 @@
-import { Input, Link, Navbar, NavbarContent } from "@heroui/react";
+"use client";
+
 import React, { useState } from "react";
+import { Input, Link, Navbar, NavbarContent } from "@heroui/react";
 import { DarkModeSwitch } from "./darkmodeswitch";
 import { FeedbackIcon } from "../icons/navbar/feedback-icon";
 import { GithubIcon } from "../icons/navbar/github-icon";
@@ -14,11 +16,7 @@ import SintesaLogoOnlyDark from "../icons/logo/snext_logoonly_dark.svg";
 import SintesaLogoOnlyLight from "../icons/logo/snext_logoonly_light.svg";
 import { UserDropdownjsx } from "./user-dropdownjsx";
 
-interface Props {
-  children?: React.ReactNode;
-}
-
-export const NavbarWrapper = ({ children }: Props) => {
+export const NavbarWrapper = ({ children }) => {
   const [searchValue, setSearchValue] = useState("");
 
   return (
@@ -30,6 +28,7 @@ export const NavbarWrapper = ({ children }: Props) => {
           wrapper: "w-full max-w-full",
         }}
       >
+        {/* Bagian kiri (logo kecil & burger) */}
         <NavbarContent className="xl:hidden" justify="start">
           <span className="flex items-center mr-4">
             <SintesaLogoOnlyDark className="h-6 w-auto block dark:hidden" />
@@ -37,6 +36,8 @@ export const NavbarWrapper = ({ children }: Props) => {
           </span>
           <BurguerButton />
         </NavbarContent>
+
+        {/* Bagian tengah (input, notifikasi, darkmode, user) di mobile */}
         <NavbarContent className="xl:hidden" justify="center">
           <div className="flex-1">
             <Input
@@ -54,10 +55,11 @@ export const NavbarWrapper = ({ children }: Props) => {
           </div>
           <NotificationBell />
           <DarkModeSwitch />
-          <UserDropdown />
+          <UserDropdownjsx />
         </NavbarContent>
+
+        {/* Bagian kiri-tengah (logo besar & input) di desktop */}
         <NavbarContent className="w-full max-xl:hidden">
-          {/* <CompaniesDropdown /> */}
           <div className="flex-shrink-0"></div>
           <span className="flex items-center mr-4">
             <SintesaLogoDark className="h-6 w-auto block dark:hidden" />
@@ -76,6 +78,8 @@ export const NavbarWrapper = ({ children }: Props) => {
             placeholder="Search Kode..."
           />
         </NavbarContent>
+
+        {/* Bagian kanan (desktop only) */}
         <NavbarContent
           justify="end"
           className="w-fit data-[justify=end]:flex-grow-0 max-xl:hidden"
@@ -89,11 +93,10 @@ export const NavbarWrapper = ({ children }: Props) => {
 
           {/* <NotificationTester /> */}
 
-          <Link href="https://spanint.kemenkeu.go.id/" target={"_blank"}>
+          <Link href="https://spanint.kemenkeu.go.id/" target="_blank">
             <GithubIcon />
           </Link>
           <DarkModeSwitch />
-
           <UserDropdownjsx />
         </NavbarContent>
       </Navbar>

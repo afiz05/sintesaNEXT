@@ -79,6 +79,7 @@ const HasilQuery = (props) => {
           },
         }
       );
+      // console.log(encryptedQuery);
 
       setData(response.data.result.filter((item) => item.kddept !== "000"));
       setPages(response.data.totalPages);

@@ -1,10 +1,10 @@
 "use client";
-import * as React from "react";
+
 import { HeroUIProvider } from "@heroui/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { NotificationProvider } from "@/components/context/NotificationContext";
 import { ToastProvider } from "@/components/context/ToastContext";
-import MyContext, { MyContextProvider } from "@/utils/Context";
+import { MyContextProvider } from "@/utils/Context";
 
 export function Providers({ children, themeProps }) {
   return (

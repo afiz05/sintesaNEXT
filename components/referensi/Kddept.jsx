@@ -3,43 +3,22 @@
 import { useContext, useEffect, useState } from "react";
 import { Autocomplete, AutocompleteItem, Skeleton } from "@heroui/react";
 
-import MyContext from "@/utils/Context";
-import Encrypt from "@/utils/Encrypt";
-import { handleHttpError } from "@/utils/handleError";
 import { useToast } from "../context/ToastContext";
+import MyContext from "@/utils/Context";
+import Encrypt from "@/utils/Random";
 
-interface KanwilData {
-  kdkanwil: string;
-  nmkanwil: string;
-}
-
-interface KanwilProps {
-  onKanwilChange?: (selectedKanwil: string) => void;
-  selectedKanwil?: string;
-}
-
-export const Kanwil = ({
-  onKanwilChange,
-  selectedKanwil: propSelectedKanwil,
-}: KanwilProps) => {
-  const [dataKanwil, setDataKanwil] = useState<KanwilData[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [selectedKey, setSelectedKey] = useState<string>(
-    propSelectedKanwil || "00"
-  );
+export const Kddept = ({ onKddeptChange, selectedKddept }) => {
+  const [dataKddept, setDataKddept] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const context = useContext(MyContext);
   const { showToast } = useToast();
 
-  const { token, axiosJWT, statusLogin } = context! as {
-    token: string;
-    axiosJWT: any;
-    statusLogin: any;
-  };
+  const { token, axiosJWT, statusLogin } = context;
 
   const getData = async () => {
     const encodedQuery = encodeURIComponent(
-      `SELECT kdkanwil, nmkanwil FROM dbref.t_kanwil_2025 where kdkanwil<>'00' order by kdkanwil asc;`
+      `SELECT kddept, nmdept FROM dbref2025.t_dept_2025  order by kddept asc;`
     );
     const cleanedQuery = decodeURIComponent(encodedQuery)
       .replace(/\n/g, " ")
@@ -62,11 +41,11 @@ export const Kanwil = ({
         }
       );
 
-      // Add "Semua Kanwil" option at the beginning
-      const allKanwilOption = { kdkanwil: "00", nmkanwil: "SEMUA KANWIL" };
-      const kanwilData = [allKanwilOption, ...(response.data.result || [])];
-      setDataKanwil(kanwilData);
-    } catch (err: any) {
+      // Add "Nasional" option at the beginning
+      const nasionalOption = { kddept: "000", nmdept: "SEMUA KL" };
+      const deptData = [nasionalOption, ...(response.data.result || [])];
+      setDataKddept(deptData);
+    } catch (err) {
       const { data } = err.response || {};
       showToast(data && data.error, "error");
     } finally {
@@ -78,34 +57,20 @@ export const Kanwil = ({
     getData();
   }, []);
 
-  // Sync dengan prop selectedKanwil jika berubah
-  useEffect(() => {
-    if (propSelectedKanwil !== undefined) {
-      setSelectedKey(propSelectedKanwil);
-    }
-  }, [propSelectedKanwil]);
-
-  const handleSelectionChange = (key: string) => {
-    setSelectedKey(key);
-    // Kirim nilai ke parent component melalui props callback
-    if (onKanwilChange) {
-      onKanwilChange(key);
-    }
-  };
-
   if (loading) {
     return <Skeleton className="w-full sm:w-44 lg:w-52 h-10 rounded-lg" />;
   }
 
   return (
     <Autocomplete
-      placeholder="Pilih Kanwil"
+      placeholder="Pilih Kementerian"
+      aria-label="kddept"
       className="w-full sm:w-44 lg:w-52 h-10"
       size="md"
       variant="flat"
       color="default"
-      selectedKey={selectedKey}
-      onSelectionChange={(key) => handleSelectionChange(key as string)}
+      selectedKey={selectedKddept}
+      onSelectionChange={(key) => onKddeptChange(key)}
       classNames={{
         base: "rounded-lg bg-slate-50/80 dark:bg-slate-800/80",
         selectorButton:
@@ -115,16 +80,20 @@ export const Kanwil = ({
           "rounded-lg bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm border-slate-200/60 dark:border-slate-700/60 !z-50 !mt-2 shadow-lg",
       }}
       allowsCustomValue
-      defaultItems={dataKanwil}
+      defaultItems={dataKddept}
     >
       {(item) => (
         <AutocompleteItem
-          key={item.kdkanwil}
+          key={item.kddept}
           textValue={
-            item.kdkanwil === "00" ? item.nmkanwil : `${item.nmkanwil}`
+            item.kddept === "000"
+              ? item.nmdept
+              : `${item.nmdept} ${item.kddept}`
           }
         >
-          {item.kdkanwil === "00" ? item.nmkanwil : `${item.nmkanwil}`}
+          {item.kddept === "000"
+            ? item.nmdept
+            : `${item.nmdept} - (${item.kddept})`}
         </AutocompleteItem>
       )}
     </Autocomplete>

@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
     ? pathname.slice(basePath.length) || "/"
     : pathname;
 
-  const publicRoutes = ["/login", "/register", "/offline"];
+  const publicRoutes = ["/login", "/register", "/offline", "/debug/auth"];
   const isPublic = publicRoutes.includes(path);
 
   // ✅ Redirect root "/" ke dashboard

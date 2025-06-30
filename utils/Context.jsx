@@ -2,13 +2,18 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-// import { useNavigate } from "react-router-dom";
-// import Notifikasi from "../components/aplikasi/notifikasi/notif";
+import { useRouter } from "next/navigation";
 import { handleHttpError } from "../components/notifikasi/toastError";
 import { io } from "socket.io-client";
 import Swal from "sweetalert2";
 import { decryptData } from "./Decrypt";
 import Notifikasi from "../components/notifikasi/notif";
+import { createAuthCookie, deleteAuthCookie } from "../actions/auth.action";
+import {
+  setupStorageWatcher,
+  checkAuthStatus as debugAuthStatus,
+  isAuthPage,
+} from "./authHelper";
 
 const MyContext = createContext({
   role: "",
@@ -18,10 +23,10 @@ const MyContext = createContext({
   statusLogin: false,
   token: "",
   axiosJWT: null,
-  // Add other default values as needed
 });
 
 export const MyContextProvider = ({ children }) => {
+  const router = useRouter();
   const [loggedinUsers, setLoggedinUsers] = useState([]);
   const [loggedInUser2, setLoggedInUser2] = useState(null);
   const [namelogin, setNamelogin] = useState(null);
@@ -62,17 +67,115 @@ export const MyContextProvider = ({ children }) => {
   const [dataEpa, setDataEpa] = useState({});
   const [viewMode, setViewMode] = useState("sppg");
 
-  // const navigate = useNavigate();
-
   useEffect(() => {
-    localStorage.getItem("status") && refreshToken();
+    const checkAndRefreshToken = async () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      // Cek apakah sedang di halaman login/register untuk menghindari loop
+      const currentPath = window.location.pathname;
+      const isOnAuthPage = isAuthPage();
+
+      try {
+        const storedToken = localStorage.getItem("token");
+
+        if (!storedToken) {
+          setstatusLogin(false);
+          await deleteAuthCookie(); // Hapus cookie auth
+
+          // Hanya redirect jika tidak sedang di halaman auth
+          if (!isOnAuthPage) {
+            window.location.href = "/login";
+          }
+          return;
+        }
+
+        const decoded = jwtDecode(decryptData(storedToken));
+        const currentTime = Date.now() / 1000;
+
+        if (decoded.exp > currentTime) {
+          setToken(storedToken);
+          setName(decoded.name);
+          setExpire(decoded.exp);
+          setstatusLogin(true);
+          setRole(decoded.role);
+          setKdkanwil(decoded.kdkanwil);
+          setKdkppn(decoded.kdkppn);
+          setKdlokasi(decoded.kdlokasi);
+          setActive(decoded.active);
+          setDeptlimit(decoded.dept_limit);
+          setNmrole(decoded.namarole);
+          setIduser(decoded.userId);
+          setUrl(decoded.url);
+          setUsername(decoded.username);
+          setMode(decoded.mode);
+          setTampil(decoded.tampil);
+          setTampilverify(decoded.tampilverify);
+          setSession(decoded.session);
+          setVerified(decoded.verified);
+          setTelp(decoded.telp);
+
+          // Sinkronisasi dengan cookie auth
+          await createAuthCookie("token", storedToken);
+        } else {
+          await refreshToken();
+        }
+      } catch (error) {
+        console.error("Error in checkAndRefreshToken:", error);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+        }
+        await deleteAuthCookie(); // Hapus cookie auth
+        setstatusLogin(false);
+
+        // Hanya redirect jika tidak sedang di halaman auth
+        if (!isOnAuthPage) {
+          window.location.href = "/login";
+        }
+      }
+    };
+
+    checkAndRefreshToken();
   }, []);
+
+  // Efek untuk memantau perubahan localStorage token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Setup watcher menggunakan helper function yang lebih robust
+    const cleanup = setupStorageWatcher(() => {
+      const isOnAuthPage = isAuthPage();
+
+      if (statusLogin && !isOnAuthPage) {
+        console.log("🚨 Token removal detected, executing logout...");
+        logout();
+      }
+    });
+
+    return cleanup;
+  }, [statusLogin]);
 
   const logout = async () => {
     try {
-      setLogoutLoading(true); // Menampilkan loading saat logout dimulai
+      debugAuthStatus(); // Debug current state
+
+      // Cek apakah sedang di halaman login untuk menghindari loop
+      const isOnAuthPage = isAuthPage();
+
+      setLogoutLoading(true);
       setUsername("");
-      await axios.delete(process.env.NEXT_PUBLIC_LOGOUT);
+
+      // Hanya panggil backend logout jika ada endpoint
+      try {
+        await axios.delete(process.env.NEXT_PUBLIC_LOCAL_LOGOUT);
+      } catch (error) {
+        console.log(
+          "Backend logout failed (might be expected):",
+          error.message
+        );
+      }
+
       setstatusLogin(false);
       setOffline(false);
       setLoggedinUsers([]);
@@ -82,39 +185,64 @@ export const MyContextProvider = ({ children }) => {
       setTelp("");
       setloginDengan(null);
 
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("status");
+      }
+
+      // Hapus cookie auth
+      await deleteAuthCookie();
+
+      // console.log("✅ Logout process completed successfully");
+
       if (stat === "true") {
         Swal.fire({
           position: "top",
           icon: "success",
           title: "Logout Berhasil",
-          timer: 2000, // Menutup otomatis setelah 2 detik
+          timer: 2000,
           showConfirmButton: false,
         });
       }
-
-      localStorage.removeItem("status");
-      // navigate("/v3/auth/login");
-      // TODO: Replace with Next.js router - window.location.href = "/v3/auth/login";
-      //setStat("true")
     } catch (error) {
+      console.error("❌ Logout process failed:", error);
       Swal.fire({
         position: "top",
         icon: "error",
         title: "Logout Gagal",
-        timer: 2000, // Menutup otomatis setelah 2 detik
+        timer: 2000,
         showConfirmButton: false,
       });
     } finally {
-      setLogoutLoading(false); // Menghentikan loading setelah logout selesai
+      setLogoutLoading(false);
+
+      // Hanya redirect jika tidak sedang di halaman auth
+      const isOnAuthPage = isAuthPage();
+
+      if (!isOnAuthPage) {
+        router.push("/login");
+      }
     }
   };
 
   const refreshToken = async () => {
     try {
-      const response = await axios.get(process.env.NEXT_PUBLIC_REFRESH_TOKEN);
-      setToken(response.data.accessToken);
-      const decoded = jwtDecode(decryptData(response.data.accessToken));
-      // console.log(decoded);
+      const response = await axios.get(
+        process.env.NEXT_PUBLIC_LOCAL_REFRESH_TOKEN,
+        {
+          withCredentials: true,
+        }
+      );
+
+      const newAccessToken = response.data.accessToken;
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", newAccessToken);
+      }
+
+      setToken(newAccessToken);
+      const decoded = jwtDecode(decryptData(newAccessToken));
+
       setName(decoded.name);
       setExpire(decoded.exp);
       setstatusLogin(true);
@@ -134,36 +262,54 @@ export const MyContextProvider = ({ children }) => {
       setSession(decoded.session);
       setVerified(decoded.verified);
       setTelp(decoded.telp);
-      // setOffline(true);
+
+      // Sinkronisasi dengan cookie auth
+      await createAuthCookie("token", newAccessToken);
     } catch (error) {
+      console.error("Error refreshing token:", error);
       if (error.response) {
-        localStorage.removeItem("status");
-        // navigate("/v3/auth/login");
-        // TODO: Replace with Next.js router - window.location.href = "/v3/auth/login";
-        // return <ToastError message="error mendapatkan token" />;
+        setstatusLogin(false);
+        setToken("");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          localStorage.removeItem("status");
+        }
+        await deleteAuthCookie(); // Hapus cookie auth
+
+        // Hanya redirect jika tidak sedang di halaman auth
+        const isOnAuthPage = isAuthPage();
+
+        if (!isOnAuthPage) {
+          window.location.href = "/login";
+        }
       }
     }
   };
 
-  const axiosJWT = axios.create();
+  const axiosJWT = axios.create({
+    withCredentials: true,
+  });
 
   axiosJWT.interceptors.request.use(
     async (config) => {
       const currentTime = Date.now() / 1000;
 
-      // 1. Check if the token is expired
-      if (expire < currentTime && localStorage.getItem("status")) {
+      if (expire < currentTime && localStorage.getItem("token")) {
         try {
-          // If expired, get a new token
           const response = await axios.get(
-            process.env.NEXT_PUBLIC_REFRESH_TOKEN
+            process.env.NEXT_PUBLIC_LOCAL_REFRESH_TOKEN,
+            {
+              withCredentials: true,
+            }
           );
           const newAccessToken = response.data.accessToken;
 
-          // Update the token in the context state
+          if (typeof window !== "undefined") {
+            localStorage.setItem("token", newAccessToken);
+          }
+
           setToken(newAccessToken);
 
-          // Decode and update all user details in the context
           const decoded = jwtDecode(decryptData(newAccessToken));
           setName(decoded.name);
           setExpire(decoded.exp);
@@ -185,16 +331,25 @@ export const MyContextProvider = ({ children }) => {
           setVerified(decoded.verified);
           setTelp(decoded.telp);
 
-          // 2. Set the header for the current request with the NEW token
+          // Sinkronisasi dengan cookie auth
+          await createAuthCookie("token", newAccessToken);
+
           config.headers.Authorization = `Bearer ${newAccessToken}`;
         } catch (error) {
-          // Handle token refresh failure (e.g., redirect to login)
-          console.error("Failed to refresh token", error);
-          logout(); // Or handle the error as you see fit
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("token");
+          }
+          await deleteAuthCookie(); // Hapus cookie auth
+
+          // Hanya logout jika tidak sedang di halaman auth
+          const isOnAuthPage = isAuthPage();
+
+          if (!isOnAuthPage) {
+            logout();
+          }
           return Promise.reject(error);
         }
       } else {
-        // 3. If token is NOT expired, set the header with the CURRENT token
         config.headers.Authorization = `Bearer ${token}`;
       }
 
@@ -206,7 +361,7 @@ export const MyContextProvider = ({ children }) => {
   );
 
   useEffect(() => {
-    if (statusLogin && session === "1") {
+    if (statusLogin && session === "1" && namelogin !== "") {
       cekLogin();
     }
   }, [namelogin]);
@@ -220,7 +375,7 @@ export const MyContextProvider = ({ children }) => {
   const cekLogin = async () => {
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_CEKLOGIN}?username=${username}`
+        `${process.env.NEXT_PUBLIC_LOCAL_CEKLOGIN}?username=${username}`
       );
 
       setStat(response.data);
@@ -229,8 +384,6 @@ export const MyContextProvider = ({ children }) => {
       setstatusLogin(false);
       setTampil(false);
       setTampilverify(false);
-      // navigate("/v3/auth/login");
-      // TODO: Replace with Next.js router - window.location.href = "/v3/auth/login";
     }
   };
   useEffect(() => {
@@ -288,7 +441,6 @@ export const MyContextProvider = ({ children }) => {
       };
     }
   }, [statusLogin]);
-  // console.log(tampilverify);
 
   return (
     <MyContext.Provider

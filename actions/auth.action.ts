@@ -12,7 +12,7 @@ export const deleteAuthCookie = async () => {
   const cookieStore = await cookies();
   cookieStore.delete("userAuth");
   cookieStore.delete("token");
-  cookieStore.delete("accessToken");
+  cookieStore.delete("token");
   cookieStore.delete("nextToken");
 };
 

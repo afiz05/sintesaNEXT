@@ -24,7 +24,7 @@ import { Search } from "lucide-react";
 
 import MyContext from "@/utils/Context";
 
-import Encrypt from "@/utils/Encrypt";
+import Encrypt from "@/utils/Random";
 import { useToast } from "../context/ToastContext";
 
 // Enhanced loading spinner component
@@ -60,13 +60,13 @@ const LoadingSpinner = () => (
 
 const LIMIT = 50;
 
-const User = forwardRef<{ reloadData: () => void }, any>((props, ref) => {
-  const [data, setData] = useState<any[]>([]);
+const User = forwardRef((props, ref) => {
+  const [data, setData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const { showToast } = useToast() as any; // Type assertion to fix TypeScript issues
+  const { showToast } = useToast(); // Remove type assertion
   const context = useContext(MyContext);
 
   // Handle case where context might be undefined during initial render
@@ -74,11 +74,11 @@ const User = forwardRef<{ reloadData: () => void }, any>((props, ref) => {
     return <div>Loading...</div>;
   }
 
-  const { token, axiosJWT } = context as any; // Type assertion to fix TypeScript issues
+  const { token, axiosJWT } = context; // Remove type assertion
 
   // --- SEARCH LOGIC FIX ---
   // Remove frontend filtering, rely on backend search only
-  const fetchData = async (pageNum: number, search: string = "") => {
+  const fetchData = async (pageNum, search = "") => {
     const offset = (pageNum - 1) * LIMIT;
     let query = `SELECT id,username,name,email,role,kdkanwil,kdkppn,kdlokasi,active,status_update FROM v3_next.users`;
     if (search) {
@@ -111,7 +111,7 @@ const User = forwardRef<{ reloadData: () => void }, any>((props, ref) => {
         setData((prev) => [...prev, ...result]);
       }
       setIsInitialLoading(false);
-    } catch (err: any) {
+    } catch (err) {
       const { data } = err.response || {};
       if (data && data.error) {
         showToast(data.error, "error");
@@ -126,7 +126,7 @@ const User = forwardRef<{ reloadData: () => void }, any>((props, ref) => {
   }, []); // Only run on mount
 
   // Update handleSearch to clear data and fetch from backend
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (e) => {
     const newSearchTerm = e.target.value;
     setSearchTerm(newSearchTerm);
     setPage(1);

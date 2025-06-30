@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect, useContext } from "react";
 import {
   Modal,
@@ -17,31 +18,18 @@ import {
 } from "@heroui/react";
 import { X, Search } from "lucide-react";
 import { useToast } from "@/components/context/ToastContext";
-import Encrypt from "@/utils/Encrypt";
 import MyContext from "@/utils/Context";
+import Encrypt from "@/utils/Random";
 
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-interface PerformaTerbesarData {
-  kddept: string;
-  nmdept: string;
-  pagu: number;
-  realisasi: number;
-  persen: number;
-}
-
-const ModalPerforma: React.FC<ModalProps> = ({ isOpen, onClose }) => {
-  const [dataDipa, setDataDipa] = useState<PerformaTerbesarData[]>([]);
+const ModalPerforma = ({ isOpen, onClose }) => {
+  const [dataDipa, setDataDipa] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { showToast } = useToast();
   const context = useContext(MyContext);
-  const { token, axiosJWT } = context!;
+  const { token, axiosJWT } = context;
 
-  const formatNumber = (value: number): string =>
+  const formatNumber = (value) =>
     new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value);
 
   const getData = async () => {
@@ -76,7 +64,7 @@ const ModalPerforma: React.FC<ModalProps> = ({ isOpen, onClose }) => {
       );
 
       const resultData = response.data.result || [];
-      const cleanedData = resultData.map((item: any) => ({
+      const cleanedData = resultData.map((item) => ({
         kddept: item.kddept || "",
         nmdept: item.nmdept || "",
         pagu: item.pagu || 0,
@@ -84,7 +72,7 @@ const ModalPerforma: React.FC<ModalProps> = ({ isOpen, onClose }) => {
         persen: item.persen || 0,
       }));
       setDataDipa(cleanedData);
-    } catch (err: any) {
+    } catch (err) {
       const errorMessage =
         err.response?.data?.error || "Terjadi kesalahan saat memuat data";
       showToast(errorMessage, "error");
@@ -134,7 +122,7 @@ const ModalPerforma: React.FC<ModalProps> = ({ isOpen, onClose }) => {
                   (header, i) => (
                     <TableColumn
                       key={i}
-                      className=" top-0 z-10 bg-gradient-to-r from-blue-150 to-indigo-50 text-center font-semibold text-sm text-gray-800 border-b-2 border-blue-200 shadow-sm"
+                      className="top-0 z-10 bg-gradient-to-r from-blue-150 to-indigo-50 text-center font-semibold text-sm text-gray-800 border-b-2 border-blue-200 shadow-sm"
                     >
                       {header}
                     </TableColumn>
@@ -151,7 +139,7 @@ const ModalPerforma: React.FC<ModalProps> = ({ isOpen, onClose }) => {
                       persen: 0,
                     }))
                   : filteredData
-                ).map((item, index) => (
+                ).map((item) => (
                   <TableRow key={item.kddept}>
                     <TableCell className="text-left align-top">
                       {loading ? (

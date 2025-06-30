@@ -3,56 +3,29 @@
 import { useContext, useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
-import MyContext from "@/utils/Context";
-import Encrypt from "@/utils/Encrypt";
-import { handleHttpError } from "@/utils/handleError";
 import {
   Card,
   CardBody,
   CardHeader,
   Progress,
   Chip,
-  Link,
   Skeleton,
 } from "@heroui/react";
-
 import { Database, FileX } from "lucide-react";
-import ModalPerforma from "../modal/detailPerforma";
-import { useToast } from "@/components/context/ToastContext";
+import ModalPerforma from "@/components/home/modal/detailPerforma";
+import MyContext from "@/utils/Context";
+import { handleHttpError } from "@/components/notifikasi/toastError";
+import Encrypt from "@/utils/Random";
 
-interface BelanjaTerbesarData {
-  kddept: string;
-  jenbel: string;
-  jenis_belanja: string;
-  pagu: number;
-  realisasi: number;
-  persen: number;
-}
-
-interface GetBelanjaTerbesarProps {
-  selectedKanwil?: string;
-  selectedKddept?: string;
-}
-
-export const BelanjaTerbesar = ({
-  selectedKanwil,
-  selectedKddept,
-}: GetBelanjaTerbesarProps) => {
-  const [dataDipa, setDataDipa] = useState<BelanjaTerbesarData[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const { theme } = useTheme();
-  const { showToast } = useToast();
-  const [modal, setModal] = useState(false);
+const PerformaTerbesar = ({ selectedKanwil, selectedKddept }) => {
+  const [dataDipa, setDataDipa] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const context = useContext(MyContext);
+  const { theme } = useTheme();
+  const [modalPerforma, setModalPerforma] = useState(false);
+  const { token, axiosJWT } = context;
 
-  const { token, axiosJWT, statusLogin } = context! as {
-    token: string;
-    axiosJWT: any;
-    statusLogin: any;
-  };
-
-  // Theme-aware class definitions
   const getThemeClasses = () => {
     const isDark = theme === "dark";
     return {
@@ -69,7 +42,7 @@ export const BelanjaTerbesar = ({
     };
   };
 
-  const formatTrillions = (amount: number) => {
+  const formatTrillions = (amount) => {
     return (
       new Intl.NumberFormat("id-ID", {
         minimumFractionDigits: 2,
@@ -79,47 +52,39 @@ export const BelanjaTerbesar = ({
   };
 
   const getData = async () => {
-    // Tambahkan filter kanwil jika selectedKanwil tersedia dan tidak "00"
-    let kanwilFilter = "";
-    if (selectedKanwil && selectedKanwil !== "00") {
-      kanwilFilter = ` and kdkanwil='${selectedKanwil}'`;
-    }
+    let kanwilFilter =
+      selectedKanwil && selectedKanwil !== "00"
+        ? ` and prk.kdkanwil='${selectedKanwil}'`
+        : "";
 
-    // Tambahkan filter kddept jika selectedKddept tersedia dan tidak "000"
-    let kddeptFilter = "";
-    if (selectedKddept && selectedKddept !== "000") {
-      kddeptFilter = ` and kddept='${selectedKddept}'`;
-    }
+    let kddeptFilter =
+      selectedKddept && selectedKddept !== "000"
+        ? ` and prk.kddept='${selectedKddept}'`
+        : "";
 
-    const encodedQuery = encodeURIComponent(
-      `SELECT 
-  ${selectedKddept && selectedKddept !== "000" ? "kddept," : ""}
-  jenbel,
-  CASE
-    WHEN jenbel = '51' THEN 'Pegawai'
-    WHEN jenbel = '52' THEN 'Barang'
-    WHEN jenbel = '53' THEN 'Modal'
-    WHEN jenbel = '57' THEN 'Sosial'
-    ELSE 'Lainnya'
-  END AS jenis_belanja,
-  SUM(pagu) AS pagu,
-  SUM(realisasi) AS realisasi,
-  SUM(realisasi) / NULLIF(SUM(pagu),0) * 100 AS persen
-FROM dashboard.pagu_real_jenbel 
-WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}
-GROUP BY jenbel;`
-    );
+    const encodedQuery = encodeURIComponent(`SELECT 
+      prk.kddept,
+      td.nmdept,
+      SUM(prk.pagu) AS pagu,
+      SUM(prk.realisasi) AS realisasi,
+      SUM(prk.realisasi) / NULLIF(SUM(prk.pagu), 0) * 100 AS persen
+    FROM dashboard.pagu_real_kl prk
+    LEFT JOIN dbref.t_dept_2025 td ON prk.kddept = td.kddept
+    WHERE prk.thang = '2022'${kanwilFilter}${kddeptFilter}
+    GROUP BY prk.kddept
+    ORDER BY pagu DESC
+    LIMIT 4;`);
+
     const cleanedQuery = decodeURIComponent(encodedQuery)
       .replace(/\n/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+
     const encryptedQuery = Encrypt(cleanedQuery);
-    console.log(cleanedQuery);
 
     try {
       setLoading(true);
       setError(null);
-
       const response = await axiosJWT.post(
         `${process.env.NEXT_PUBLIC_GET_REFERENSI}`,
         { query: encryptedQuery },
@@ -134,9 +99,14 @@ GROUP BY jenbel;`
 
       const resultData = response.data.result || [];
       setDataDipa(resultData);
-    } catch (err: any) {
-      const { data } = err.response || {};
-      showToast(data && data.error, "error");
+    } catch (err) {
+      const { status, data } = err.response || {};
+      setDataDipa([]);
+      handleHttpError(
+        status,
+        (data && data.error) ||
+          "Terjadi Permasalahan Koneksi atau Server Backend"
+      );
     } finally {
       setLoading(false);
     }
@@ -144,9 +114,8 @@ GROUP BY jenbel;`
 
   useEffect(() => {
     getData();
-  }, [selectedKanwil, selectedKddept]);
+  }, []);
 
-  // Common Card Header component
   const CardHeaderComponent = () => (
     <CardHeader className="pb-2 px-4 md:px-6">
       <div className="flex justify-between items-center w-full">
@@ -155,11 +124,11 @@ GROUP BY jenbel;`
             getThemeClasses().textPrimary
           }`}
         >
-          Jenis Belanja Terbesar
+          Performa K/L Terbesar
         </h3>
         <Chip
           color="primary"
-          onClick={() => setModal(true)}
+          onClick={() => setModalPerforma(true)}
           variant="flat"
           size="sm"
           className="w-fit cursor-pointer"
@@ -170,7 +139,6 @@ GROUP BY jenbel;`
     </CardHeader>
   );
 
-  // Render loading state
   const renderLoadingContent = () => (
     <CardBody className="pt-0 px-4 md:px-6">
       <div className="space-y-2 md:space-y-3">
@@ -193,7 +161,6 @@ GROUP BY jenbel;`
     </CardBody>
   );
 
-  // Render empty state
   const renderEmptyContent = () => (
     <CardBody className="pt-0 px-4 md:px-6">
       <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -213,40 +180,31 @@ GROUP BY jenbel;`
     </CardBody>
   );
 
-  // Render main content
   const renderMainContent = () => {
-    // Process data based on whether we're filtering by specific department or showing all
-    const jenbelData = dataDipa
+    const ministryData = dataDipa
       .map((item) => {
         const percentage =
           item.pagu > 0 ? (item.realisasi / item.pagu) * 100 : 0;
         const status =
-          percentage >= 80
+          percentage >= 90
             ? "excellent"
-            : percentage >= 60
+            : percentage >= 80
             ? "on-track"
             : "warning";
         return {
-          name: item.jenis_belanja,
+          name: item.nmdept || `K/L ${item.kddept}`,
           budget: formatTrillions(item.pagu / 1000000000000),
           realized: formatTrillions(item.realisasi / 1000000000000),
           percentage: Math.round(percentage),
           status,
-          paguValue: item.pagu,
-          realisasiValue: item.realisasi,
         };
       })
-      .sort((a, b) => {
-        // Sort by budget amount (extract numeric value from formatted string)
-        const budgetA = parseFloat(a.budget.replace(/[^\d.-]/g, ""));
-        const budgetB = parseFloat(b.budget.replace(/[^\d.-]/g, ""));
-        return budgetB - budgetA;
-      });
+      .sort((a, b) => b.percentage - a.percentage);
 
     return (
       <CardBody className="pt-0 px-4 md:px-6">
         <div className="space-y-0">
-          {jenbelData.slice(0, 4).map((jenbel, index) => (
+          {ministryData.slice(0, 4).map((ministry, index) => (
             <div
               key={index}
               className="flex items-center justify-between p-0.5 md:p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200"
@@ -258,29 +216,30 @@ GROUP BY jenbel;`
                       getThemeClasses().textSecondary
                     }`}
                   >
-                    {jenbel.name}
+                    {ministry.name}
                   </h4>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Progress
-                      value={jenbel.percentage}
+                      value={ministry.percentage}
                       color={
-                        jenbel.status === "excellent"
+                        ministry.status === "excellent"
                           ? "success"
-                          : jenbel.status === "on-track"
+                          : ministry.status === "on-track"
                           ? "primary"
                           : "warning"
                       }
+                      aria-label="performaterbesar"
                       size="md"
                       className="w-full h-6"
                       classNames={{
                         track:
                           "h-6 bg-gradient-to-r from-default-100 to-default-200 dark:from-slate-700 dark:to-slate-600 shadow-inner rounded-full border border-default-200 dark:border-slate-600",
                         indicator: `h-6 rounded-full shadow-lg transition-all duration-500 ease-out ${
-                          jenbel.status === "excellent"
+                          ministry.status === "excellent"
                             ? "bg-gradient-to-r from-green-400 to-emerald-500 shadow-green-200 dark:shadow-green-900/50"
-                            : jenbel.status === "on-track"
+                            : ministry.status === "on-track"
                             ? "bg-gradient-to-r from-blue-400 to-indigo-500 shadow-blue-200 dark:shadow-blue-900/50"
                             : "bg-gradient-to-r from-amber-400 to-orange-500 shadow-amber-200 dark:shadow-amber-900/50"
                         }`,
@@ -293,7 +252,7 @@ GROUP BY jenbel;`
                           theme === "dark" ? "text-white" : "text-slate-800"
                         }`}
                       >
-                        Rp {jenbel.realized} / Rp {jenbel.budget}
+                        Rp {ministry.realized} / Rp {ministry.budget}
                       </span>
                     </div>
                   </div>
@@ -301,15 +260,15 @@ GROUP BY jenbel;`
                     size="sm"
                     variant="flat"
                     color={
-                      jenbel.status === "excellent"
+                      ministry.status === "excellent"
                         ? "success"
-                        : jenbel.status === "on-track"
+                        : ministry.status === "on-track"
                         ? "primary"
                         : "warning"
                     }
                     className="text-xs flex-shrink-0 font-semibold shadow-sm"
                   >
-                    {jenbel.percentage}%
+                    {ministry.percentage}%
                   </Chip>
                 </div>
               </div>
@@ -320,7 +279,6 @@ GROUP BY jenbel;`
     );
   };
 
-  // Main return with common structure
   return (
     <>
       <Card
@@ -334,10 +292,15 @@ GROUP BY jenbel;`
           : dataDipa.length === 0
           ? renderEmptyContent()
           : renderMainContent()}
-      </Card>{" "}
-      {modal && (
-        <ModalPerforma isOpen={modal} onClose={() => setModal(false)} />
+      </Card>
+      {modalPerforma && (
+        <ModalPerforma
+          isOpen={modalPerforma}
+          onClose={() => setModalPerforma(false)}
+        />
       )}
     </>
   );
 };
+
+export default PerformaTerbesar;

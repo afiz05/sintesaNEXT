@@ -5,9 +5,9 @@ import { Card, CardBody, CardHeader, Skeleton, Chip } from "@heroui/react";
 import { useTheme } from "next-themes";
 import { PieChart, Database, FileX } from "lucide-react";
 import dynamic from "next/dynamic";
-import type { Props } from "react-apexcharts";
+import MyContext from "@/utils/Context";
+import Encrypt from "@/utils/Random";
 
-// Import Chart component with SSR disabled
 const Chart = dynamic(() => import("./client-chart"), {
   ssr: false,
   loading: () => (
@@ -17,58 +17,26 @@ const Chart = dynamic(() => import("./client-chart"), {
   ),
 });
 
-import MyContext from "@/utils/Context";
-import Encrypt from "@/utils/Encrypt";
-import { handleHttpError } from "@/utils/handleError";
-
-interface DukmanTeknisData {
-  thang: number;
-  pagu_dukman: number;
-  pagu_teknis: number;
-  real_dukman: number;
-  real_teknis: number;
-}
-
-interface DukmanTeknisProps {
-  selectedKanwil?: string;
-  selectedKddept?: string;
-}
-
-export const DukmanTeknis = ({
-  selectedKanwil,
-  selectedKddept,
-}: DukmanTeknisProps) => {
-  const [dataDukmanTeknis, setDataDukmanTeknis] = useState<DukmanTeknisData[]>(
-    []
-  );
-  const [loading, setLoading] = useState<boolean>(false);
+export const DukmanTeknis = ({ selectedKanwil, selectedKddept }) => {
+  const [dataDukmanTeknis, setDataDukmanTeknis] = useState([]);
+  const [loading, setLoading] = useState(false);
   const context = useContext(MyContext);
   const { theme } = useTheme();
 
-  const { token, axiosJWT } = context! as {
-    token: string;
-    axiosJWT: any;
-  };
+  const { token, axiosJWT } = context;
 
-  const formatTrillions = (amount: number) => {
-    return (
-      new Intl.NumberFormat("id-ID", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount / 1000000000000) + " T"
-    );
-  };
+  const formatTrillions = (amount) =>
+    `${new Intl.NumberFormat("id-ID", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount / 1e12)} T`;
 
-  const formatTrillionsForChart = (amount: number) => {
-    return (
-      new Intl.NumberFormat("id-ID", {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }).format(amount / 1000000000000) + " T"
-    );
-  };
+  const formatTrillionsForChart = (amount) =>
+    `${new Intl.NumberFormat("id-ID", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(amount / 1e12)} T`;
 
-  // Theme-aware color definitions
   const getThemeColors = () => {
     const isDark = theme === "dark";
     return {
@@ -83,7 +51,6 @@ export const DukmanTeknis = ({
     };
   };
 
-  // Theme-aware class definitions for skeleton
   const getThemeClasses = () => {
     const isDark = theme === "dark";
     return {
@@ -94,47 +61,37 @@ export const DukmanTeknis = ({
   };
 
   const getData = async () => {
-    // Tambahkan filter kanwil jika selectedKanwil tersedia dan tidak "00"
-    let kanwilFilter = "";
-    if (selectedKanwil && selectedKanwil !== "00") {
-      kanwilFilter = ` and kdkanwil='${selectedKanwil}'`;
-    }
+    let kanwilFilter =
+      selectedKanwil && selectedKanwil !== "00"
+        ? ` and kdkanwil='${selectedKanwil}'`
+        : "";
+    let kddeptFilter =
+      selectedKddept && selectedKddept !== "000"
+        ? ` and kddept='${selectedKddept}'`
+        : "";
 
-    // Tambahkan filter kddept jika selectedKddept tersedia dan tidak "000"
-    let kddeptFilter = "";
-    if (selectedKddept && selectedKddept !== "000") {
-      kddeptFilter = ` and kddept='${selectedKddept}'`;
-    }
+    const query = `SELECT thang,
+      SUM(CASE WHEN jns_program = 'dukman' THEN pagu ELSE 0 END) AS pagu_dukman,
+      SUM(CASE WHEN jns_program = 'teknis' THEN pagu ELSE 0 END) AS pagu_teknis,
+      SUM(CASE WHEN jns_program = 'dukman' THEN ${Array.from(
+        { length: 12 },
+        (_, i) => `IFNULL(real${i + 1},0)`
+      ).join("+")} ELSE 0 END) AS real_dukman,
+      SUM(CASE WHEN jns_program = 'teknis' THEN ${Array.from(
+        { length: 12 },
+        (_, i) => `IFNULL(real${i + 1},0)`
+      ).join("+")} ELSE 0 END) AS real_teknis
+      FROM dashboard.tren_belanja_dukman_teknis
+      WHERE thang = '2022'${kanwilFilter}${kddeptFilter}`;
 
-    const encodedQuery = encodeURIComponent(
-      `SELECT
-    thang,
- SUM(CASE WHEN jns_program = 'dukman' THEN pagu ELSE 0 END) AS pagu_dukman,
-    SUM(CASE WHEN jns_program = 'teknis' THEN pagu ELSE 0 END) AS pagu_teknis,
-    SUM(CASE WHEN jns_program = 'dukman' THEN 
-        IFNULL(real1,0)+IFNULL(real2,0)+IFNULL(real3,0)+IFNULL(real4,0)+IFNULL(real5,0)+
-        IFNULL(real6,0)+IFNULL(real7,0)+IFNULL(real8,0)+IFNULL(real9,0)+IFNULL(real10,0)+
-        IFNULL(real11,0)+IFNULL(real12,0)
-        ELSE 0 END) AS real_dukman,
-    SUM(CASE WHEN jns_program = 'teknis' THEN 
-        IFNULL(real1,0)+IFNULL(real2,0)+IFNULL(real3,0)+IFNULL(real4,0)+IFNULL(real5,0)+
-        IFNULL(real6,0)+IFNULL(real7,0)+IFNULL(real8,0)+IFNULL(real9,0)+IFNULL(real10,0)+
-        IFNULL(real11,0)+IFNULL(real12,0)
-        ELSE 0 END) AS real_teknis
-FROM dashboard.tren_belanja_dukman_teknis
-WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
+    const encryptedQuery = Encrypt(
+      query.replace(/\n/g, " ").replace(/\s+/g, " ").trim()
     );
-    const cleanedQuery = decodeURIComponent(encodedQuery)
-      .replace(/\n/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const encryptedQuery = Encrypt(cleanedQuery);
 
     try {
       setLoading(true);
-
       const response = await axiosJWT.post(
-        `${process.env.NEXT_PUBLIC_GET_REFERENSI}`,
+        process.env.NEXT_PUBLIC_GET_REFERENSI,
         { query: encryptedQuery },
         {
           headers: {
@@ -144,16 +101,14 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
           },
         }
       );
-
-      const resultData = response.data.result || [];
-      setDataDukmanTeknis(resultData);
-    } catch (err: any) {
+      setDataDukmanTeknis(response.data.result || []);
+    } catch (err) {
       const { status, data } = err.response || {};
-      setDataDukmanTeknis([]); // Explicitly set empty array on error
+      setDataDukmanTeknis([]);
       handleHttpError(
         status,
         (data && data.error) ||
-          "Terjadi Permasalahan Koneksi atau Server Backend "
+          "Terjadi Permasalahan Koneksi atau Server Backend"
       );
     } finally {
       setLoading(false);
@@ -162,7 +117,13 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
 
   useEffect(() => {
     getData();
-  }, [selectedKanwil, selectedKddept]); // Tambahkan selectedKanwil dan selectedKddept sebagai dependency
+  }, [selectedKanwil, selectedKddept]);
+
+  const isEmpty =
+    dataDukmanTeknis.length === 0 ||
+    Object.values(dataDukmanTeknis[0])
+      .slice(1)
+      .every((val) => val === 0 || val === null);
 
   if (loading) {
     return (
@@ -179,7 +140,6 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
         </CardHeader>
         <CardBody className="pt-0 px-4 md:px-6">
           <div className="space-y-3">
-            {/* Chart legend skeleton */}
             <div className="flex justify-center gap-4">
               <div className="flex items-center gap-2">
                 <Skeleton className="h-3 w-3 rounded-full" />
@@ -190,7 +150,6 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
                 <Skeleton className="h-3 w-16 rounded" />
               </div>
             </div>
-            {/* Chart area skeleton */}
             <div className="h-64 flex items-end justify-center gap-8">
               <div className="flex flex-col items-center gap-2">
                 <Skeleton className="h-20 w-8 rounded-t" />
@@ -209,34 +168,11 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
     );
   }
 
-  // Theme-aware class definitions for empty state
-  const getEmptyStateClasses = () => {
-    const isDark = theme === "dark";
-    return {
-      cardBg: isDark
-        ? "bg-gradient-to-br from-slate-800/90 to-slate-700/90"
-        : "bg-gradient-to-br from-white/90 to-slate-50/90",
-      textPrimary: isDark ? "text-slate-100" : "text-slate-900",
-      textSecondary: isDark ? "text-slate-300" : "text-slate-600",
-      textMuted: isDark ? "text-slate-400" : "text-slate-600",
-    };
-  };
-
-  // Check if all numerical values are zero or null
-  const isEmpty =
-    dataDukmanTeknis.length === 0 ||
-    Object.values(dataDukmanTeknis[0])
-      .slice(1)
-      .every((val) => val === 0 || val === null);
-
-  // Process data for chart - create series for Dukman and Teknis
   if (isEmpty) {
     return (
       <div className="w-full h-full">
         <Card
-          className={`border-none shadow-sm ${
-            getEmptyStateClasses().cardBg
-          } h-full`}
+          className={`border-none shadow-sm ${getThemeClasses().cardBg} h-full`}
         >
           <CardBody className="pt-0 px-4 md:px-6">
             <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -259,55 +195,33 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
     );
   }
 
-  // Get the first record (since we're grouping by year)
   const data = dataDukmanTeknis[0];
-
-  // Create data arrays for the chart
   const categories = ["Dukman", "Teknis"];
-
-  // Use actual values for both pagu and realisasi
   const paguData = [data.pagu_dukman || 0, data.pagu_teknis || 0];
   const realisasiData = [data.real_dukman || 0, data.real_teknis || 0];
-
   const colors = getThemeColors();
 
-  const state: Props["series"] = [
-    {
-      name: "Pagu",
-      data: paguData,
-    },
-    {
-      name: "Realisasi",
-      data: realisasiData,
-    },
+  const series = [
+    { name: "Pagu", data: paguData },
+    { name: "Realisasi", data: realisasiData },
   ];
 
-  const options: Props["options"] = {
+  const options = {
     chart: {
       type: "bar",
-      animations: {
-        speed: 300,
-      },
+      animations: { speed: 300 },
       toolbar: { show: false },
       background: "transparent",
       fontFamily: "inherit",
     },
     xaxis: {
-      categories: categories,
-      labels: {
-        style: {
-          colors: colors.textPrimary,
-        },
-      },
+      categories,
+      labels: { style: { colors: colors.textPrimary } },
     },
     yaxis: {
       labels: {
-        style: {
-          colors: colors.textPrimary,
-        },
-        formatter: function (value: number) {
-          return formatTrillionsForChart(value);
-        },
+        style: { colors: colors.textPrimary },
+        formatter: formatTrillionsForChart,
       },
     },
     colors: [colors.primary, colors.success],
@@ -333,49 +247,29 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
         fontWeight: 600,
         colors: [theme === "dark" ? "#ffffff" : "#1f2937"],
       },
-      formatter: function (val: number) {
-        return formatTrillionsForChart(val);
-      },
+      formatter: formatTrillionsForChart,
       offsetX: 0,
       offsetY: 0,
       textAnchor: "middle",
-      distributed: false,
-      background: {
-        enabled: false,
-      },
+      background: { enabled: false },
     },
     legend: {
       position: "top",
       horizontalAlign: "center",
       fontSize: "12px",
       fontWeight: 500,
-      labels: {
-        colors: colors.textPrimary,
-      },
-      markers: {
-        size: 8,
-      },
-      itemMargin: {
-        horizontal: 10,
-        vertical: 5,
-      },
+      labels: { colors: colors.textPrimary },
+      markers: { size: 8 },
+      itemMargin: { horizontal: 10, vertical: 5 },
     },
     tooltip: {
       theme: theme === "dark" ? "dark" : "light",
-      style: {
-        fontSize: "12px",
-      },
-      y: {
-        formatter: function (val: number) {
-          return formatTrillions(val);
-        },
-      },
+      style: { fontSize: "12px" },
+      y: { formatter: formatTrillions },
     },
     grid: {
       show: true,
       borderColor: colors.strokeColor,
-      strokeDashArray: 0,
-      position: "back",
     },
     responsive: [
       {
@@ -384,9 +278,7 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
           legend: {
             position: "top",
             fontSize: "10px",
-            labels: {
-              colors: colors.textPrimary,
-            },
+            labels: { colors: colors.textPrimary },
           },
           dataLabels: {
             style: {
@@ -402,9 +294,9 @@ WHERE thang = '2022' ${kanwilFilter}${kddeptFilter}`
   return (
     <div className="w-full h-full relative">
       <Chart
-        key={theme} // Force re-render when theme changes
+        key={theme}
         options={options}
-        series={state}
+        series={series}
         type="bar"
         height="100%"
         width="100%"

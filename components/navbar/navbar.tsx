@@ -5,13 +5,14 @@ import { FeedbackIcon } from "../icons/navbar/feedback-icon";
 import { GithubIcon } from "../icons/navbar/github-icon";
 import { SearchIcon } from "../icons/searchicon";
 import { BurguerButton } from "./burguer-button";
-import { UserDropdown } from "./user-dropdown";
+
 import NotificationBell from "@/components/navbar/NotificationBellFixed";
 import NotificationTester from "@/components/navbar/NotificationTester";
 import SintesaLogoDark from "../icons/logo/snext_dark.svg";
 import SintesaLogoLight from "../icons/logo/snext_light.svg";
 import SintesaLogoOnlyDark from "../icons/logo/snext_logoonly_dark.svg";
 import SintesaLogoOnlyLight from "../icons/logo/snext_logoonly_light.svg";
+import { UserDropdownjsx } from "./user-dropdownjsx";
 
 interface Props {
   children?: React.ReactNode;
@@ -72,7 +73,7 @@ export const NavbarWrapper = ({ children }: Props) => {
               input: "w-full",
               mainWrapper: "w-full",
             }}
-            placeholder="Search..."
+            placeholder="Search Kode..."
           />
         </NavbarContent>
         <NavbarContent
@@ -93,7 +94,7 @@ export const NavbarWrapper = ({ children }: Props) => {
           </Link>
           <DarkModeSwitch />
 
-          <UserDropdown />
+          <UserDropdownjsx />
         </NavbarContent>
       </Navbar>
       {children}

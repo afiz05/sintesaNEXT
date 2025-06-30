@@ -16,7 +16,7 @@ import { PageTransitionSuccess } from "./PageTransitionSuccess";
 import MyContext from "@/utils/Context";
 import { decryptData } from "@/utils/Decrypt";
 import { jwtDecode } from "jwt-decode";
-import { handleHttpError } from "@/utils/handleError";
+import { handleHttpError } from "@/components/notifikasi/toastError";
 
 export const Login = () => {
   const context = useContext(MyContext);
@@ -33,7 +33,6 @@ export const Login = () => {
     setActive,
     setKdlokasi,
     setKdkanwil,
-
     setDeptlimit,
     setKdkppn,
     setExpire,
@@ -232,7 +231,7 @@ export const Login = () => {
           setShowSuccessAnimation(true);
           localStorage.setItem("status", "true");
           localStorage.setItem("token", data.tokenSetLogin); // Persist token for refresh
-          await createAuthCookie("token", JSON.stringify(true));
+          await createAuthCookie("token", data.tokenSetLogin); // Gunakan token sebenarnya
         }
       } catch (error) {
         console.log(error);
@@ -272,7 +271,8 @@ export const Login = () => {
       // PIN is correct, proceed with login
       setShowSuccessAnimation(true);
       localStorage.setItem("status", "true");
-      await createAuthCookie("token", JSON.stringify(true));
+      // Untuk PIN login, kita buat token dummy atau gunakan sistem lain
+      await createAuthCookie("token", "pin_authenticated");
     } catch (error) {
       showToast("PIN login failed. Please try again.", "error");
     } finally {

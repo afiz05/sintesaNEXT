@@ -3,30 +3,22 @@
 import { useContext, useEffect, useState } from "react";
 import { Autocomplete, AutocompleteItem } from "@heroui/react";
 
-import MyContext from "@/utils/Context";
-import Encrypt from "@/utils/Encrypt";
-import { handleHttpError } from "@/utils/handleError";
-
-interface TahunData {
-  kode: string;
-  tahun: string;
-}
-
 export const Thang = () => {
-  const [selectedKey, setSelectedKey] = useState<string>("2025");
+  const [selectedKey, setSelectedKey] = useState("2025");
 
   // Data tahun hanya 2025
-  const dataTahun: TahunData[] = [{ kode: "2025", tahun: "2025" }];
+  const dataTahun = [{ kode: "2025", tahun: "2025" }];
 
   return (
     <Autocomplete
       placeholder="Pilih Tahun"
       className="w-full sm:w-44 lg:w-52 h-10"
+      aria-label="thang"
       size="md"
       variant="flat"
       color="default"
       selectedKey={selectedKey}
-      onSelectionChange={(key) => setSelectedKey(key as string)}
+      onSelectionChange={(key) => setSelectedKey(key)}
       classNames={{
         base: "rounded-lg bg-slate-50/80 dark:bg-slate-800/80",
         selectorButton:

@@ -11,18 +11,28 @@ import {
   Divider,
   Skeleton,
 } from "@heroui/react";
-import { Thang } from "@/components/referensi/Thang";
-import { Kddept } from "@/components/referensi/Kddept";
-import { Kanwil } from "@/components/referensi/Kanwil";
-import { GetDipa } from "@/components/home/dataDipa/getDipa";
 
 import dynamic from "next/dynamic";
 import { AlertTriangle, BarChart3, CheckCircle2, Clock } from "lucide-react";
 import NextLink from "next/link";
-import { Fungsi } from "@/components/charts/fungsi";
-import { DukmanTeknis } from "@/components/charts/dukmanteknis";
-import { BelanjaTerbesar } from "@/components/home/dataDipa/BelanjaTerbesar";
-import { PerformaTerbesar } from "@/components/home/dataDipa/PerformaTerbesar";
+import { Thang } from "../../../components/referensi/Thang";
+import { Kddept } from "../../../components/referensi/Kddept";
+import { Kanwil } from "../../../components/referensi/Kanwil";
+import { GetDipa } from "../../../components/home/dataDipa/getDipa";
+import { BelanjaTerbesar } from "../../../components/home/dataDipa/BelanjaTerbesar";
+import PerformaTerbesar from "../../../components/home/dataDipa/PerformaTerbesar";
+import { Fungsi } from "../../../components/charts/fungsi";
+
+const DukmanTeknis = dynamic(
+  () =>
+    import("../../../components/charts/dukmanTeknis").then((module) => ({
+      default: module.DukmanTeknis,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-64" />,
+  }
+);
 
 const realizationProgramData = [
   { name: "Infrastruktur", pagu: 450, realisasi: 390 },
@@ -59,8 +69,8 @@ const recentActivities = [
 
 export default function DashboardLoading() {
   const { theme } = useTheme();
-  const [selectedKanwil, setSelectedKanwil] = useState < string > "00";
-  const [selectedKddept, setSelectedKddept] = useState < string > "000";
+  const [selectedKanwil, setSelectedKanwil] = useState("00");
+  const [selectedKddept, setSelectedKddept] = useState("000");
 
   // Handler untuk menerima perubahan nilai kanwil dari komponen Kanwil
   const handleKanwilChange = (kanwilValue) => {
@@ -83,10 +93,10 @@ export default function DashboardLoading() {
   const cardClasses = getCardClasses();
 
   const TrenApbn = dynamic(
-    () =>
-      import("../../../components/charts/trenApbn").then((mod) => mod.TrenApbn),
+    () => import("../../../components/charts/trenApbn"),
     {
       ssr: false,
+      loading: () => <Skeleton className="w-full h-64" />,
     }
   );
 
